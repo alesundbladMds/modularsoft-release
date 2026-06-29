@@ -155,6 +155,8 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
 }
 [data-theme="dark"] body { background: var(--body-bg); color: var(--text-main); }
 [data-theme="dark"] .navbar { background: #1e1e1e !important; border-bottom-color: #b40000; }
+[data-theme="dark"] .navbar-collapse { background: #1e1e1e; }
+[data-theme="dark"] .navbar-toggler { border-color: #444 !important; color: #aaa; }
 [data-theme="dark"] .navbar-brand, [data-theme="dark"] #user-name, [data-theme="dark"] #sync-label { color: #e8e8e8 !important; }
 [data-theme="dark"] .nav-tabs { background: #1e1e1e; border-bottom-color: #3a3a3a; }
 [data-theme="dark"] .nav-tabs .nav-link { color: #888; }
@@ -225,22 +227,29 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
 <div id="app" style="display:none;">
 
   <!-- NAVBAR -->
-  <nav class="navbar fixed-top">
+  <nav class="navbar navbar-expand-md fixed-top">
     <div class="container-fluid px-3">
       <span class="navbar-brand mb-0">eg<strong>Release</strong> Board</span>
-      <div class="vhdr-sep mx-2" style="height:28px;"></div>
-      <div class="navbar-version">
+      <div class="vhdr-sep mx-2 d-none d-md-block" style="height:28px;"></div>
+      <div class="navbar-version d-none d-md-flex">
         <span class="vbadge-label">Versión</span>
         <span class="vbadge-value" id="navbar-app-version">eGestion v3.26.05.01</span>
       </div>
-      <div class="d-flex align-items-center gap-3 ms-auto">
-        <span id="sync-dot" class="sync-dot" title="Estado de conexión"></span>
-        <span id="sync-label" class="text-muted" style="font-size:12px;"></span>
-        <span id="user-name" class="text-muted" style="font-size:12px;"></span>
-        <button class="btn btn-sm btn-outline-secondary" onclick="syncFromSheets()" title="Recargar desde Sheets">↻ Sincronizar</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="generateReport()" id="btn-report" style="display:none;" title="Generar informe de texto">🗒️ Informe</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" id="btn-theme" title="Cambiar tema">☀</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="logout()">Salir</button>
+      <!-- toggler mobile -->
+      <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" style="border-color:#dee2e6; font-size:14px; padding:4px 8px;">
+        ☰
+      </button>
+      <!-- collapsible content -->
+      <div class="collapse navbar-collapse" id="navbar-collapse">
+        <div class="d-flex align-items-center gap-2 ms-auto flex-wrap py-2 py-md-0">
+          <span id="sync-dot" class="sync-dot" title="Estado de conexión"></span>
+          <span id="sync-label" class="text-muted" style="font-size:12px;"></span>
+          <span id="user-name" class="text-muted" style="font-size:12px;"></span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="syncFromSheets()" title="Recargar desde Sheets">↻ Sincronizar</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="generateReport()" id="btn-report" style="display:none;" title="Generar informe de texto">🗒️ Informe</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" id="btn-theme" title="Cambiar tema">🌙</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="logout()">Salir</button>
+        </div>
       </div>
     </div>
   </nav>
@@ -1044,6 +1053,7 @@ async function loadVersion(version) {
     document.getElementById('tablero-board').style.display = 'block';
     document.getElementById('btn-report').style.display = 'inline-block';
     document.getElementById('hdr-version-select').value = version;
+    document.getElementById('navbar-app-version').textContent = 'eGestion v' + version;
     document.getElementById('hdr-revrange').textContent = 'r' + meta.revFrom + ' — r' + meta.revTo;
     document.getElementById('last-sync-label').textContent = 'Sync: ' + new Date().toLocaleTimeString('es-AR');
 
