@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>egRelease Board</title>
+<title>Modularsoft - egRelease Board</title>
+<meta name="app-version" content="1.0" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23185FA5'/%3E%3Crect x='6' y='8' width='20' height='3' rx='1.5' fill='%23fff'/%3E%3Crect x='6' y='14' width='14' height='3' rx='1.5' fill='%23E6F1FB'/%3E%3Crect x='6' y='20' width='17' height='3' rx='1.5' fill='%23E6F1FB'/%3E%3Ccircle cx='25' cy='23' r='5' fill='%231D9E75'/%3E%3Cpath d='M22.5 23l1.5 1.5 3-3' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -134,6 +136,63 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
 
 /* ── Admin lock overlay ─────────────────────────────────── */
 #config-lock { padding: 60px 20px; text-align: center; }
+
+/* ── Version badge navbar ───────────────────────────────── */
+.navbar-version { display: flex; flex-direction: column; align-items: flex-start; padding: 3px 12px; border: 1px solid #dee2e6; border-radius: 6px; line-height: 1.2; }
+.navbar-version .vbadge-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #adb5bd; }
+.navbar-version .vbadge-value { font-size: 12px; font-weight: 600; color: #212529; }
+
+/* ── Dark mode ──────────────────────────────────────────── */
+[data-theme="dark"] {
+  --body-bg: #1a1a1a;
+  --card-bg: #252525;
+  --border-color: #3a3a3a;
+  --text-main: #e8e8e8;
+  --text-muted: #888;
+  --input-bg: #2e2e2e;
+  --input-color: #e8e8e8;
+  --grid-header-color: #666;
+}
+[data-theme="dark"] body { background: var(--body-bg); color: var(--text-main); }
+[data-theme="dark"] .navbar { background: #1e1e1e !important; border-bottom-color: #b40000; }
+[data-theme="dark"] .navbar-brand, [data-theme="dark"] #user-name, [data-theme="dark"] #sync-label { color: #e8e8e8 !important; }
+[data-theme="dark"] .nav-tabs { background: #1e1e1e; border-bottom-color: #3a3a3a; }
+[data-theme="dark"] .nav-tabs .nav-link { color: #888; }
+[data-theme="dark"] .nav-tabs .nav-link.active { color: #e04040; border-bottom-color: #e04040; }
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .version-header,
+[data-theme="dark"] .commit-row,
+[data-theme="dark"] .config-section,
+[data-theme="dark"] .bg-white { background: var(--card-bg) !important; border-color: var(--border-color) !important; }
+[data-theme="dark"] .commit-row { color: var(--text-main); }
+[data-theme="dark"] .grid-header { color: var(--grid-header-color); border-bottom-color: var(--border-color); }
+[data-theme="dark"] .stat-label, [data-theme="dark"] .commit-meta, [data-theme="dark"] .vhdr-label { color: var(--text-muted); }
+[data-theme="dark"] .vhdr-value, [data-theme="dark"] .stat-value { color: var(--text-main); }
+[data-theme="dark"] .vhdr-sep { background: var(--border-color); }
+[data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
+  background: var(--input-bg); color: var(--input-color); border-color: var(--border-color);
+}
+[data-theme="dark"] .form-control::placeholder { color: #555; }
+[data-theme="dark"] .note-input { background: #2a2a2a; color: var(--text-main); border-color: var(--border-color); }
+[data-theme="dark"] .act-btn { border-color: var(--border-color); color: #888; }
+[data-theme="dark"] .btn-outline-secondary { color: #aaa; border-color: #555; }
+[data-theme="dark"] .btn-outline-secondary:hover { background: #333; color: #ddd; }
+[data-theme="dark"] .dropzone { border-color: var(--border-color); }
+[data-theme="dark"] .dropzone:hover, [data-theme="dark"] .dropzone.drag-over { background: #1e2d3a; border-color: var(--ms-blue); }
+[data-theme="dark"] .ver-row:hover { background: #2e2e2e; }
+[data-theme="dark"] .ver-row.active { background: #1e2d3a; }
+[data-theme="dark"] .table { color: var(--text-main); }
+[data-theme="dark"] .table thead th { color: var(--text-muted); }
+[data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
+[data-theme="dark"] .login-card { background: #252525; }
+[data-theme="dark"] .login-brand { color: #e8e8e8; }
+[data-theme="dark"] .navbar-version { border-color: #3a3a3a; }
+[data-theme="dark"] .navbar-version .vbadge-value { color: #e8e8e8; }
+[data-theme="dark"] #login-wall { background: #1a1a1a; }
+[data-theme="dark"] .msg-clean { color: #ddd; }
+[data-theme="dark"] .rev-num a { color: var(--ms-blue-tx) !important; }
+[data-theme="dark"] .config-section-title { color: #aaa; }
+[data-theme="dark"] #hdr-version-select { color: #e8e8e8 !important; }
 </style>
 </head>
 <body>
@@ -169,12 +228,18 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
   <nav class="navbar fixed-top">
     <div class="container-fluid px-3">
       <span class="navbar-brand mb-0">eg<strong>Release</strong> Board</span>
+      <div class="vhdr-sep mx-2" style="height:28px;"></div>
+      <div class="navbar-version">
+        <span class="vbadge-label">Versión</span>
+        <span class="vbadge-value" id="navbar-app-version">eGestion v3.26.05.01</span>
+      </div>
       <div class="d-flex align-items-center gap-3 ms-auto">
         <span id="sync-dot" class="sync-dot" title="Estado de conexión"></span>
         <span id="sync-label" class="text-muted" style="font-size:12px;"></span>
         <span id="user-name" class="text-muted" style="font-size:12px;"></span>
         <button class="btn btn-sm btn-outline-secondary" onclick="syncFromSheets()" title="Recargar desde Sheets">↻ Sincronizar</button>
         <button class="btn btn-sm btn-outline-secondary" onclick="generateReport()" id="btn-report" style="display:none;" title="Generar informe de texto">🗒️ Informe</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" id="btn-theme" title="Cambiar tema">☀</button>
         <button class="btn btn-sm btn-outline-danger" onclick="logout()">Salir</button>
       </div>
     </div>
@@ -206,7 +271,9 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
           <div class="vhdr-dot"></div>
           <div>
             <div class="vhdr-label">Versión activa</div>
-            <div class="vhdr-value" id="hdr-version">—</div>
+            <select id="hdr-version-select" class="form-select form-select-sm" style="font-weight:600; font-size:14px; border:none; background:transparent; padding:0; color:#212529; cursor:pointer; max-width:180px;" onchange="loadVersion(this.value)">
+              <option value="">—</option>
+            </select>
           </div>
           <div class="vhdr-sep"></div>
           <div>
@@ -489,6 +556,42 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
 // LOGO (para PDF)
 // ══════════════════════════════════════════════════════
 const CUBE_B64 = "data:image/png;base64,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";
+
+// ══════════════════════════════════════════════════════
+// TEMA (dark / light)
+// ══════════════════════════════════════════════════════
+(function() {
+  const saved = localStorage.getItem('egrelease-theme') || 'light';
+  if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+})();
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('egrelease-theme', next);
+  document.getElementById('btn-theme').textContent = next === 'dark' ? '☀' : '🌙';
+}
+
+// Aplicar icono correcto al cargar
+window.addEventListener('DOMContentLoaded', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = isDark ? '☀' : '🌙';
+
+  // Enter en client-id-input
+  document.getElementById('client-id-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveClientId();
+  });
+  // Enter en admin-key-input
+  document.getElementById('admin-key-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') unlockConfig();
+  });
+  // Enter en search — prevenir submit, la búsqueda ya es live
+  document.getElementById('search')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+});
 
 // ══════════════════════════════════════════════════════
 // ESTADO GLOBAL
@@ -866,6 +969,15 @@ async function loadVersionsList() {
           }).join('')}
         </tbody>
       </table>`;
+    // Poblar select del tablero con las versiones disponibles
+    const sel = document.getElementById('hdr-version-select');
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">— seleccionar —</option>' +
+        vRows.map(r => `<option value="${esc(r[0])}">${esc('eGestion v' + r[0])}</option>`).join('');
+      if (prev) sel.value = prev;
+    }
+
     setSyncDot('ok', 'Conectado');
   } catch(e) {
     setSyncDot('error', 'Error');
@@ -931,7 +1043,7 @@ async function loadVersion(version) {
     document.getElementById('tablero-empty').style.display = 'none';
     document.getElementById('tablero-board').style.display = 'block';
     document.getElementById('btn-report').style.display = 'inline-block';
-    document.getElementById('hdr-version').textContent = 'eGestion v' + version;
+    document.getElementById('hdr-version-select').value = version;
     document.getElementById('hdr-revrange').textContent = 'r' + meta.revFrom + ' — r' + meta.revTo;
     document.getElementById('last-sync-label').textContent = 'Sync: ' + new Date().toLocaleTimeString('es-AR');
 
@@ -1284,9 +1396,8 @@ function renderGrid() {
 
     const diff    = c.diff ? `<button class="toggle-raw" onclick="showDiff(${c.rev})">ver diff (${c.diff.split('\n').length} líneas)</button>` : '';
     const pathsHtml = (c.paths||[]).length
-      ? `<div class="files-changed" onclick="this.nextSibling.classList.toggle('open')">${c.files} archivo${c.files!==1?'s':''} ▾</div>
-         <div class="path-list">${(c.paths).map(p=>`<div class="path-item"><span class="path-action ${p.action}">${p.action}</span><span>${esc(p.path)}</span></div>`).join('')}</div>`
-      : `<div class="files-changed">${c.files} archivo${c.files!==1?'s':''}</div>`;
+      ? `<div class="files-changed" onclick="this.nextElementSibling.classList.toggle('open')">${c.files} archivo${c.files!==1?'s':''} ▾</div><div class="path-list">${(c.paths).map(p=>`<div class="path-item"><span class="path-action ${p.action}">${p.action}</span><span>${esc(p.path)}</span></div>`).join('')}</div>`
+      : `<div class="files-changed" style="cursor:default;">${c.files} archivo${c.files!==1?'s':''}</div>`;
 
     return `<div class="commit-row ${st !== 'pending' ? st : ''}" id="row-${c.rev}">
       <div>
