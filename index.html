@@ -1120,9 +1120,10 @@ async function uploadToSheets(data) {
     await ensureSheets();
 
     // Verificar si la versión ya existe en Sheets
-    const vData = await sheetsGet('Versiones!A:A');
-    const vRows = (vData.values || []).slice(1).map(r => r[0]);
-    const versionExists = vRows.includes(version);
+    const vData = await sheetsGet('Versiones!A:F');
+    const vRows = (vData.values || []).slice(1);
+    const vRowIndex = vRows.findIndex(r => r[0] === version);
+    const versionExists = vRowIndex !== -1;
 
     let newCount = 0;
 
@@ -1155,9 +1156,20 @@ async function uploadToSheets(data) {
         }
         newCount = newCommits.length;
       }
+
+      // Actualizar datos de la versión (rango, URL y fecha) con los datos combinados
+      const vRow = vRows[vRowIndex];
+      const allRevs = [...existingRevs, ...data.commits.map(c => c.rev)];
+      const revFrom = Math.min(...allRevs);
+      const revTo   = Math.max(...allRevs);
+      const svnUrl  = data.meta?.svnUrl || vRow[3] || '';
+      const fecha   = new Date().toLocaleDateString('es-AR');
+      const rowNum  = vRowIndex + 2; // +1 por 1-based, +1 por header
+      await sheetsUpdate(`Versiones!A${rowNum}:E${rowNum}`, [[version, revFrom, revTo, svnUrl, fecha]]);
+
       statusEl.innerHTML = newCount
-        ? `<div class="alert alert-success py-2">✓ Acoplado: <strong>${newCount}</strong> revisiones nuevas agregadas a <strong>${esc(version)}</strong>. (${data.commits.length - newCount} ya existían)</div>`
-        : `<div class="alert alert-secondary py-2">Sin cambios: todas las revisiones de <strong>${esc(version)}</strong> ya estaban en Sheets.</div>`;
+        ? `<div class="alert alert-success py-2">✓ Acoplado: <strong>${newCount}</strong> revisiones nuevas agregadas a <strong>${esc(version)}</strong>. Rango actualizado a r${revFrom}–r${revTo}. (${data.commits.length - newCount} ya existían)</div>`
+        : `<div class="alert alert-secondary py-2">Sin revisiones nuevas para <strong>${esc(version)}</strong>. Rango y fecha actualizados igualmente.</div>`;
     }
 
     setSyncDot('ok', 'Conectado');
