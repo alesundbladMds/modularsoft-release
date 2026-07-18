@@ -660,7 +660,7 @@ function initGoogleClient(clientId) {
   });
   // Renderizar botón de Google
   const wrap = document.getElementById('google-btn-wrap');
-  wrap.innerHTML = '<button class="btn btn-dark" onclick="tokenClient.requestAccessToken()">Conectar con Google</button>';
+  wrap.innerHTML = '<button class="btn btn-dark" onclick="tokenClient.requestAccessToken({prompt:\'\'})">Conectar con Google</button>';
 }
 
 async function handleTokenResponse(resp) {
@@ -726,8 +726,8 @@ async function sheetsReq(path, method, body) {
     body: body ? JSON.stringify(body) : undefined
   });
   if (res.status === 401) {
-    // Token expirado — solicitar nuevo
-    tokenClient.requestAccessToken();
+    // Token expirado — solicitar nuevo en silencio (reusa la sesión activa, sin selector de cuenta)
+    tokenClient.requestAccessToken({ prompt: '' });
     throw new Error('Token expirado. Reconectando...');
   }
   if (!res.ok) {
@@ -1130,9 +1130,9 @@ async function uploadToSheets(data) {
     if (!versionExists) {
       // Crear versión en hoja Versiones
       const incomingRevs = data.commits.map(c => c.rev);
-      const revFrom = Math.min(...incomingRevs);
-      const revTo   = Math.max(...incomingRevs);
-      const fecha   = new Date().toLocaleDateString('es-AR');
+      const revFrom = data.meta?.revFrom ?? Math.min(...incomingRevs);
+      const revTo   = data.meta?.revTo   ?? Math.max(...incomingRevs);
+      const fecha   = data.meta?.fecha || new Date().toLocaleDateString('es-AR');
       await sheetsAppend('Versiones!A:F', [[version, revFrom, revTo, data.meta?.svnUrl || '', fecha, '']]);
 
       // Agregar todas las revisiones
@@ -1160,10 +1160,15 @@ async function uploadToSheets(data) {
       // Actualizar datos de la versión (rango, URL y fecha) con los datos combinados
       const vRow = vRows[vRowIndex];
       const allRevs = [...existingRevs, ...data.commits.map(c => c.rev)];
-      const revFrom = Math.min(...allRevs);
-      const revTo   = Math.max(...allRevs);
+      const commitsRevFrom = Math.min(...allRevs);
+      const commitsRevTo   = Math.max(...allRevs);
+      const existingRevFrom = parseInt(vRow[1]);
+      const existingRevTo   = parseInt(vRow[2]);
+      // Priorizar meta del JSON (puede cubrir un rango más amplio que los commits individuales)
+      const revFrom = Math.min(data.meta?.revFrom ?? commitsRevFrom, existingRevFrom, commitsRevFrom);
+      const revTo   = Math.max(data.meta?.revTo   ?? commitsRevTo,   existingRevTo,   commitsRevTo);
       const svnUrl  = data.meta?.svnUrl || vRow[3] || '';
-      const fecha   = new Date().toLocaleDateString('es-AR');
+      const fecha   = data.meta?.fecha || new Date().toLocaleDateString('es-AR');
       const rowNum  = vRowIndex + 2; // +1 por 1-based, +1 por header
       await sheetsUpdate(`Versiones!A${rowNum}:E${rowNum}`, [[version, revFrom, revTo, svnUrl, fecha]]);
 
