@@ -1103,6 +1103,12 @@ function handleJSONFile(file) {
   reader.readAsText(file);
 }
 
+// Convierte fecha ISO "YYYY-MM-DD" (formato de meta.fecha en el JSON) a "DD/MM/YYYY" para el Sheet
+function formatFechaSheet(fecha) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha || '');
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : fecha;
+}
+
 async function uploadToSheets(data) {
   if (!ls('spreadsheetId')) {
     showError('Configurá el Spreadsheet ID en ⚙ Config primero.');
@@ -1132,7 +1138,7 @@ async function uploadToSheets(data) {
       const incomingRevs = data.commits.map(c => c.rev);
       const revFrom = data.meta?.revFrom ?? Math.min(...incomingRevs);
       const revTo   = data.meta?.revTo   ?? Math.max(...incomingRevs);
-      const fecha   = data.meta?.fecha || new Date().toLocaleDateString('es-AR');
+      const fecha   = formatFechaSheet(data.meta?.fecha) || new Date().toLocaleDateString('es-AR');
       await sheetsAppend('Versiones!A:F', [[version, revFrom, revTo, data.meta?.svnUrl || '', fecha, '']]);
 
       // Agregar todas las revisiones
@@ -1168,7 +1174,7 @@ async function uploadToSheets(data) {
       const revFrom = Math.min(data.meta?.revFrom ?? commitsRevFrom, existingRevFrom, commitsRevFrom);
       const revTo   = Math.max(data.meta?.revTo   ?? commitsRevTo,   existingRevTo,   commitsRevTo);
       const svnUrl  = data.meta?.svnUrl || vRow[3] || '';
-      const fecha   = data.meta?.fecha || new Date().toLocaleDateString('es-AR');
+      const fecha   = formatFechaSheet(data.meta?.fecha) || new Date().toLocaleDateString('es-AR');
       const rowNum  = vRowIndex + 2; // +1 por 1-based, +1 por header
       await sheetsUpdate(`Versiones!A${rowNum}:E${rowNum}`, [[version, revFrom, revTo, svnUrl, fecha]]);
 
