@@ -1538,6 +1538,21 @@ function openAIModal() {
   new bootstrap.Modal(document.getElementById('ai-modal')).show();
 }
 
+// Parsea la respuesta de la IA como texto plano (una línea limpia por mensaje de entrada).
+// Evita JSON.parse: los mensajes de commit suelen traer código/backticks/comillas que
+// los modelos chicos no siempre escapan bien dentro de un string JSON.
+function parseCleanedLines(text, expectedCount) {
+  const lines = text
+    .replace(/```[a-z]*\n?/gi, '')
+    .split(/\r?\n/)
+    .map(l => l.replace(/^\s*[-*]?\s*\d+[.):-]\s*/, '').trim())
+    .filter(l => l.length > 0);
+  if (lines.length !== expectedCount) {
+    throw new Error(`Se esperaban ${expectedCount} líneas y llegaron ${lines.length}`);
+  }
+  return lines;
+}
+
 // Persiste cleanMsg (columna F) en Sheets para las filas dadas, en un solo batch.
 async function persistCleanMsgs(chunk) {
   const data = chunk
@@ -1583,7 +1598,7 @@ async function runAIClean() {
   for (let i = 0; i < commits.length; i += CHUNK) {
     const chunk = commits.slice(i, i + CHUNK);
     const lines = chunk.map(c => `r${c.rev}: ${c.rawMsg}`).join('\n');
-    const prompt = `${instruction}\n\nMensajes:\n${lines}\n\nResponde SOLO con JSON válido sin backticks ni texto adicional. Formato exacto: {"cleaned": ["msg1", "msg2", ...]}`;
+    const prompt = `${instruction}\n\nMensajes (uno por línea):\n${lines}\n\nRespondé con exactamente ${chunk.length} líneas de salida, una por mensaje de entrada, en el mismo orden. Cada línea es solo el texto limpio: sin numeración, sin comillas, sin JSON, sin backticks, sin texto adicional antes o después.`;
     let aiOk = false;
     try {
       let res;
@@ -1601,7 +1616,7 @@ async function runAIClean() {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
         const data = await res.json();
         const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-        const cleaned = JSON.parse(text.replace(/```json|```/g, '').trim()).cleaned;
+        const cleaned = parseCleanedLines(text, chunk.length);
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       } else {
         // OpenAI-compatible (Gemini, Groq, OpenRouter)
@@ -1613,7 +1628,7 @@ async function runAIClean() {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
         const data = await res.json();
         const text = data.choices?.[0]?.message?.content || '';
-        const cleaned = JSON.parse(text.replace(/```json|```/g, '').trim()).cleaned;
+        const cleaned = parseCleanedLines(text, chunk.length);
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       }
       aiOk = true;
