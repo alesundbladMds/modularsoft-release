@@ -1538,12 +1538,29 @@ function openAIModal() {
   new bootstrap.Modal(document.getElementById('ai-modal')).show();
 }
 
+// Persiste cleanMsg (columna F) en Sheets para las filas dadas, en un solo batch.
+async function persistCleanMsgs(chunk) {
+  const data = chunk
+    .filter(c => rowMap[c.rev])
+    .map(c => ({ range: `Revisiones!F${rowMap[c.rev]}`, values: [[c.cleanMsg || '']] }));
+  if (!data.length) return;
+  await sheetsBatch(data);
+}
+
 async function runAIClean() {
   const mode   = document.getElementById('clean-mode').value;
   const status = document.getElementById('ai-status');
   if (mode === 'raw') {
     commits.forEach(c => { c.cleanMsg = c.rawMsg; });
     renderGrid();
+    status.textContent = '⏳ Guardando...';
+    try {
+      await persistCleanMsgs(commits);
+      status.textContent = '✓ Listo';
+    } catch (e) {
+      console.error('Limpiar IA (raw): fallo guardando en Sheets', e);
+      status.textContent = `⚠ No se pudo guardar en Sheets: ${e.message}`;
+    }
     return;
   }
   const apiKey   = ls('aiKey');
@@ -1560,10 +1577,14 @@ async function runAIClean() {
     : 'Para cada línea, retorná el mensaje de commit limpio: eliminá prefijos de ticket (BUG-, TASK-, HOTFIX-, FEATURE-, FIX-, FEAT-), notas internas (--revisado, --deployer, [skip ci], WIP:, TODO:, ###), dejá solo la descripción técnica. Sin prefijo "rNNNN:".';
 
   const CHUNK = 20;
+  let aiFailed   = 0;
+  let saveFailed = 0;
+  let lastError  = '';
   for (let i = 0; i < commits.length; i += CHUNK) {
     const chunk = commits.slice(i, i + CHUNK);
     const lines = chunk.map(c => `r${c.rev}: ${c.rawMsg}`).join('\n');
     const prompt = `${instruction}\n\nMensajes:\n${lines}\n\nResponde SOLO con JSON válido sin backticks ni texto adicional. Formato exacto: {"cleaned": ["msg1", "msg2", ...]}`;
+    let aiOk = false;
     try {
       let res;
       if (provider === 'anthropic') {
@@ -1577,6 +1598,7 @@ async function runAIClean() {
           },
           body: JSON.stringify({ model, max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
         const data = await res.json();
         const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
         const cleaned = JSON.parse(text.replace(/```json|```/g, '').trim()).cleaned;
@@ -1588,16 +1610,36 @@ async function runAIClean() {
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
           body: JSON.stringify({ model, max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
         const data = await res.json();
         const text = data.choices?.[0]?.message?.content || '';
         const cleaned = JSON.parse(text.replace(/```json|```/g, '').trim()).cleaned;
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       }
-    } catch { chunk.forEach(c => { c.cleanMsg = c.rawMsg; }); }
-    status.textContent = `⏳ ${Math.min(i + CHUNK, commits.length)}/${commits.length}`;
+      aiOk = true;
+    } catch (e) {
+      aiFailed++;
+      lastError = e.message || String(e);
+      console.error('Limpiar IA: fallo en chunk', i, e);
+      chunk.forEach(c => { c.cleanMsg = c.rawMsg; });
+    }
     renderGrid();
+    if (aiOk) {
+      try {
+        await persistCleanMsgs(chunk);
+      } catch (e) {
+        saveFailed++;
+        lastError = e.message || String(e);
+        console.error('Limpiar IA: fallo guardando en Sheets', e);
+      }
+    }
+    status.textContent = `⏳ ${Math.min(i + CHUNK, commits.length)}/${commits.length}`;
   }
-  status.textContent = '✓ Listo';
+  if (aiFailed || saveFailed) {
+    status.textContent = `⚠ Terminado con errores (IA: ${aiFailed}, guardado: ${saveFailed}) — ${lastError}`;
+  } else {
+    status.textContent = '✓ Listo';
+  }
 }
 
 // ══════════════════════════════════════════════════════
