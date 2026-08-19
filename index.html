@@ -533,6 +533,12 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
             <option value="raw">Sin procesar (usar mensaje original)</option>
           </select>
         </div>
+        <div class="form-check mb-3">
+          <input type="checkbox" class="form-check-input" id="clean-force-all">
+          <label class="form-check-label" for="clean-force-all" style="font-size:12px;">
+            Volver a limpiar todo (incluso lo ya limpiado)
+          </label>
+        </div>
         <button class="btn btn-dark btn-sm w-100" onclick="runAIClean()">Limpiar con IA</button>
         <div id="ai-status" class="text-muted mt-2" style="font-size:12px; text-align:center;"></div>
       </div>
@@ -1586,17 +1592,24 @@ async function runAIClean() {
 
   if (!apiKey) { alert('Configurá la API Key en ⚙ Config → Inteligencia Artificial.'); return; }
 
+  const forceAll = document.getElementById('clean-force-all').checked;
+  const targets  = forceAll ? commits : commits.filter(c => !c.cleanMsg || c.cleanMsg === c.rawMsg);
+  if (!targets.length) {
+    status.textContent = 'Nada para limpiar — ya está todo limpio. Tildá "Volver a limpiar todo" para forzar.';
+    return;
+  }
+
   status.textContent = '⏳ Procesando...';
   const instruction = mode === 'short'
     ? 'Para cada línea, retorná una versión muy corta (máx 8 palabras) del mensaje de commit, sin el prefijo "rNNNN:".'
     : 'Para cada línea, retorná el mensaje de commit limpio: eliminá prefijos de ticket (BUG-, TASK-, HOTFIX-, FEATURE-, FIX-, FEAT-), notas internas (--revisado, --deployer, [skip ci], WIP:, TODO:, ###), dejá solo la descripción técnica. Sin prefijo "rNNNN:".';
 
-  const CHUNK = 20;
+  const CHUNK = 10;
   let aiFailed   = 0;
   let saveFailed = 0;
   let lastError  = '';
-  for (let i = 0; i < commits.length; i += CHUNK) {
-    const chunk = commits.slice(i, i + CHUNK);
+  for (let i = 0; i < targets.length; i += CHUNK) {
+    const chunk = targets.slice(i, i + CHUNK);
     const lines = chunk.map(c => `r${c.rev}: ${c.rawMsg}`).join('\n');
     const prompt = `${instruction}\n\nMensajes (uno por línea):\n${lines}\n\nRespondé con exactamente ${chunk.length} líneas de salida, una por mensaje de entrada, en el mismo orden. Cada línea es solo el texto limpio: sin numeración, sin comillas, sin JSON, sin backticks, sin texto adicional antes o después.`;
     let aiOk = false;
@@ -1648,7 +1661,7 @@ async function runAIClean() {
         console.error('Limpiar IA: fallo guardando en Sheets', e);
       }
     }
-    status.textContent = `⏳ ${Math.min(i + CHUNK, commits.length)}/${commits.length}`;
+    status.textContent = `⏳ ${Math.min(i + CHUNK, targets.length)}/${targets.length}`;
   }
   if (aiFailed || saveFailed) {
     status.textContent = `⚠ Terminado con errores (IA: ${aiFailed}, guardado: ${saveFailed}) — ${lastError}`;
