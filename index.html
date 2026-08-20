@@ -1621,6 +1621,8 @@ async function runAIClean() {
     const lines = chunk.map((c, j) => `${j + 1}) r${c.rev}: ${c.rawMsg}`).join('\n');
     const prompt = `${instruction}\n\nMensajes numerados:\n${lines}\n\nRespondé con exactamente ${chunk.length} líneas, una por cada mensaje de entrada. Cada línea con el formato "N) texto limpio", usando el mismo número N del mensaje de entrada correspondiente (no te lo saltees aunque el mensaje ya esté limpio o parezca vacío después de limpiarlo — en ese caso repetí el mensaje original para ese número). Sin comillas, sin JSON, sin backticks, sin texto adicional antes o después de las líneas.`;
     let aiOk = false;
+    let rawText = '';
+    let rawData = null;
     try {
       let res;
       if (provider === 'anthropic') {
@@ -1632,31 +1634,41 @@ async function runAIClean() {
             'anthropic-version': '2023-06-01',
             'anthropic-dangerous-direct-browser-access': 'true'
           },
-          body: JSON.stringify({ model, max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
-        const data = await res.json();
-        const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-        const cleaned = parseCleanedLines(text, chunk.length);
+        rawData = await res.json();
+        rawText = rawData.content.filter(b => b.type === 'text').map(b => b.text).join('');
+        const cleaned = parseCleanedLines(rawText, chunk.length);
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       } else {
         // OpenAI-compatible (Gemini, Groq, OpenRouter)
         res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-          body: JSON.stringify({ model, max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content || '';
-        const cleaned = parseCleanedLines(text, chunk.length);
+        rawData = await res.json();
+        rawText = rawData.choices?.[0]?.message?.content || '';
+        const cleaned = parseCleanedLines(rawText, chunk.length);
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       }
       aiOk = true;
     } catch (e) {
       aiFailed++;
       lastError = e.message || String(e);
-      console.error('Limpiar IA: fallo en chunk', i, e);
+      // Log completo a la consola del navegador para diagnosticar sin poder reproducir localmente
+      // (el modal de la IA solo muestra el mensaje de error, no el JSON entero de la respuesta).
+      console.error('Limpiar IA: fallo en chunk', i, {
+        finishReason: rawData?.stop_reason || rawData?.choices?.[0]?.finish_reason,
+        rawText,
+        rawData,
+        error: e
+      });
+      lastError += rawText
+        ? ` | Respuesta: "${rawText.slice(0, 200)}"`
+        : ' | La IA devolvió texto vacío — ver consola del navegador (F12) para el JSON completo';
       chunk.forEach(c => { c.cleanMsg = c.rawMsg; });
     }
     renderGrid();
