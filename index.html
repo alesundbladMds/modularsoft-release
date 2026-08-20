@@ -1544,6 +1544,23 @@ function openAIModal() {
   new bootstrap.Modal(document.getElementById('ai-modal')).show();
 }
 
+// Reintenta con backoff ante 429 (quota) / 503 (sobrecarga del proveedor) — ambos transitorios
+// y muy frecuentes en los tiers gratuitos. Cualquier otro status no-ok se tira de una.
+async function fetchAIWithRetry(url, options, statusEl, maxRetries = 3) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, options);
+    if (res.ok) return res;
+    if ((res.status === 429 || res.status === 503) && attempt < maxRetries) {
+      const waitMs = (attempt + 1) * 4000;
+      console.warn(`Limpiar IA: HTTP ${res.status}, reintento ${attempt + 1}/${maxRetries} en ${waitMs / 1000}s`);
+      if (statusEl) statusEl.textContent = `⏳ HTTP ${res.status}, reintentando en ${waitMs / 1000}s (intento ${attempt + 1}/${maxRetries})...`;
+      await new Promise(r => setTimeout(r, waitMs));
+      continue;
+    }
+    throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+}
+
 // Parsea la respuesta de la IA como líneas "N) texto" (una por mensaje de entrada, numerada
 // igual que el listado que se le mandó). Evita JSON.parse (los mensajes de commit traen
 // código/backticks/comillas que los modelos chicos no siempre escapan bien dentro de un
@@ -1626,7 +1643,7 @@ async function runAIClean() {
     try {
       let res;
       if (provider === 'anthropic') {
-        res = await fetch(endpoint, {
+        res = await fetchAIWithRetry(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1634,21 +1651,24 @@ async function runAIClean() {
             'anthropic-version': '2023-06-01',
             'anthropic-dangerous-direct-browser-access': 'true'
           },
-          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+          body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
+        }, status);
         rawData = await res.json();
         rawText = rawData.content.filter(b => b.type === 'text').map(b => b.text).join('');
         const cleaned = parseCleanedLines(rawText, chunk.length);
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       } else {
         // OpenAI-compatible (Gemini, Groq, OpenRouter)
-        res = await fetch(endpoint, {
+        const body = { model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] };
+        // Gemini 2.5+/3.x traen "thinking" habilitado por defecto en la capa OpenAI-compatible:
+        // el razonamiento oculto consume el max_tokens antes de escribir la respuesta visible,
+        // cortando la salida a mitad de camino (finish_reason: "length"). Lo desactivamos acá.
+        if (preset === 'gemini') body.reasoning_effort = 'none';
+        res = await fetchAIWithRetry(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+          body: JSON.stringify(body)
+        }, status);
         rawData = await res.json();
         rawText = rawData.choices?.[0]?.message?.content || '';
         const cleaned = parseCleanedLines(rawText, chunk.length);
