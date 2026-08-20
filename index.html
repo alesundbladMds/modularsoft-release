@@ -1544,19 +1544,27 @@ function openAIModal() {
   new bootstrap.Modal(document.getElementById('ai-modal')).show();
 }
 
-// Parsea la respuesta de la IA como texto plano (una línea limpia por mensaje de entrada).
-// Evita JSON.parse: los mensajes de commit suelen traer código/backticks/comillas que
-// los modelos chicos no siempre escapan bien dentro de un string JSON.
+// Parsea la respuesta de la IA como líneas "N) texto" (una por mensaje de entrada, numerada
+// igual que el listado que se le mandó). Evita JSON.parse (los mensajes de commit traen
+// código/backticks/comillas que los modelos chicos no siempre escapan bien dentro de un
+// string JSON) y evita depender de la CANTIDAD de líneas (si el modelo se come una línea o
+// agrega una de más, con el número explícito sabemos cuál falta en vez de un mismatch ciego).
 function parseCleanedLines(text, expectedCount) {
-  const lines = text
-    .replace(/```[a-z]*\n?/gi, '')
-    .split(/\r?\n/)
-    .map(l => l.replace(/^\s*[-*]?\s*\d+[.):-]\s*/, '').trim())
-    .filter(l => l.length > 0);
-  if (lines.length !== expectedCount) {
-    throw new Error(`Se esperaban ${expectedCount} líneas y llegaron ${lines.length}`);
+  const clean = text.replace(/```[a-z]*\n?/gi, '');
+  const map = {};
+  clean.split(/\r?\n/).forEach(line => {
+    const m = line.match(/^\s*(\d+)\s*[).:-]\s*(.*)$/);
+    if (m && m[2].trim()) map[parseInt(m[1], 10)] = m[2].trim();
+  });
+  const result  = [];
+  const missing = [];
+  for (let i = 1; i <= expectedCount; i++) {
+    if (map[i]) result.push(map[i]); else missing.push(i);
   }
-  return lines;
+  if (missing.length) {
+    throw new Error(`Faltan líneas limpias para los mensajes: ${missing.join(', ')} (de ${expectedCount})`);
+  }
+  return result;
 }
 
 // Persiste cleanMsg (columna F) en Sheets para las filas dadas, en un solo batch.
@@ -1610,8 +1618,8 @@ async function runAIClean() {
   let lastError  = '';
   for (let i = 0; i < targets.length; i += CHUNK) {
     const chunk = targets.slice(i, i + CHUNK);
-    const lines = chunk.map(c => `r${c.rev}: ${c.rawMsg}`).join('\n');
-    const prompt = `${instruction}\n\nMensajes (uno por línea):\n${lines}\n\nRespondé con exactamente ${chunk.length} líneas de salida, una por mensaje de entrada, en el mismo orden. Cada línea es solo el texto limpio: sin numeración, sin comillas, sin JSON, sin backticks, sin texto adicional antes o después.`;
+    const lines = chunk.map((c, j) => `${j + 1}) r${c.rev}: ${c.rawMsg}`).join('\n');
+    const prompt = `${instruction}\n\nMensajes numerados:\n${lines}\n\nRespondé con exactamente ${chunk.length} líneas, una por cada mensaje de entrada. Cada línea con el formato "N) texto limpio", usando el mismo número N del mensaje de entrada correspondiente (no te lo saltees aunque el mensaje ya esté limpio o parezca vacío después de limpiarlo — en ese caso repetí el mensaje original para ese número). Sin comillas, sin JSON, sin backticks, sin texto adicional antes o después de las líneas.`;
     let aiOk = false;
     try {
       let res;
