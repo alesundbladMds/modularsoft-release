@@ -1659,15 +1659,10 @@ async function runAIClean() {
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       } else {
         // OpenAI-compatible (Gemini, Groq, OpenRouter)
-        const body = { model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] };
-        // Gemini 2.5+/3.x traen "thinking" habilitado por defecto en la capa OpenAI-compatible:
-        // el razonamiento oculto consume el max_tokens antes de escribir la respuesta visible,
-        // cortando la salida a mitad de camino (finish_reason: "length"). Lo desactivamos acá.
-        if (preset === 'gemini') body.reasoning_effort = 'none';
         res = await fetchAIWithRetry(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-          body: JSON.stringify(body)
+          body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
         }, status);
         rawData = await res.json();
         rawText = rawData.choices?.[0]?.message?.content || '';
