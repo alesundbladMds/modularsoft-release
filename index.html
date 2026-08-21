@@ -860,30 +860,43 @@ function saveRepoConfig() {
 }
 
 // ── AI Presets ─────────────────────────────────────────
+// chunkSize/maxTokens ajustados al tier gratuito de cada proveedor — Groq tiene un límite muy
+// chico de tokens/minuto (8000 TPM en el free tier para gpt-oss-20b) y con chunk de 10 + 4096
+// tokens pedidos se llenaba en una sola llamada. reasoningEffort solo se manda si el preset lo
+// declara explícitamente (evita repetir el 400 que tiramos probando esto a ciegas con Gemini).
 const AI_PRESETS = {
   anthropic: {
     label: 'Claude (Anthropic)',
     endpoint: 'https://api.anthropic.com/v1/messages',
     model: 'claude-haiku-4-5-20251001',
-    provider: 'anthropic'
+    provider: 'anthropic',
+    chunkSize: 10,
+    maxTokens: 4096
   },
   gemini: {
     label: 'Gemini Flash (Google)',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     model: 'gemini-3.6-flash',
-    provider: 'openai'
+    provider: 'openai',
+    chunkSize: 10,
+    maxTokens: 4096
   },
   groq: {
-    label: 'Groq Llama 3.1',
+    label: 'Groq (gpt-oss-20b)',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'llama-3.1-8b-instant',
-    provider: 'openai'
+    model: 'openai/gpt-oss-20b',
+    provider: 'openai',
+    chunkSize: 4,
+    maxTokens: 1500,
+    reasoningEffort: 'low'
   },
   openrouter: {
     label: 'OpenRouter (Llama free)',
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'meta-llama/llama-3.1-8b-instruct:free',
-    provider: 'openai'
+    provider: 'openai',
+    chunkSize: 6,
+    maxTokens: 2000
   }
 };
 
@@ -1609,11 +1622,12 @@ async function runAIClean() {
     }
     return;
   }
-  const apiKey   = ls('aiKey');
-  const endpoint = ls('aiEndpoint') || AI_PRESETS.anthropic.endpoint;
-  const model    = ls('aiModel')    || AI_PRESETS.anthropic.model;
-  const preset   = ls('aiPreset')   || 'anthropic';
-  const provider = (AI_PRESETS[preset] || AI_PRESETS.anthropic).provider;
+  const apiKey    = ls('aiKey');
+  const endpoint  = ls('aiEndpoint') || AI_PRESETS.anthropic.endpoint;
+  const model     = ls('aiModel')    || AI_PRESETS.anthropic.model;
+  const preset    = ls('aiPreset')   || 'anthropic';
+  const presetCfg = AI_PRESETS[preset] || AI_PRESETS.anthropic;
+  const provider  = presetCfg.provider;
 
   if (!apiKey) { alert('Configurá la API Key en ⚙ Config → Inteligencia Artificial.'); return; }
 
@@ -1629,7 +1643,7 @@ async function runAIClean() {
     ? 'Para cada línea, retorná una versión muy corta (máx 8 palabras) del mensaje de commit, sin el prefijo "rNNNN:".'
     : 'Para cada línea, retorná el mensaje de commit limpio: eliminá prefijos de ticket (BUG-, TASK-, HOTFIX-, FEATURE-, FIX-, FEAT-), notas internas (--revisado, --deployer, [skip ci], WIP:, TODO:, ###), dejá solo la descripción técnica. Sin prefijo "rNNNN:".';
 
-  const CHUNK = 10;
+  const CHUNK = presetCfg.chunkSize || 10;
   let aiFailed   = 0;
   let saveFailed = 0;
   let lastError  = '';
@@ -1651,7 +1665,7 @@ async function runAIClean() {
             'anthropic-version': '2023-06-01',
             'anthropic-dangerous-direct-browser-access': 'true'
           },
-          body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model, max_tokens: presetCfg.maxTokens || 4096, messages: [{ role: 'user', content: prompt }] })
         }, status);
         rawData = await res.json();
         rawText = rawData.content.filter(b => b.type === 'text').map(b => b.text).join('');
@@ -1659,10 +1673,12 @@ async function runAIClean() {
         chunk.forEach((c, j) => { c.cleanMsg = cleaned[j] || c.rawMsg; });
       } else {
         // OpenAI-compatible (Gemini, Groq, OpenRouter)
+        const body = { model, max_tokens: presetCfg.maxTokens || 4096, messages: [{ role: 'user', content: prompt }] };
+        if (presetCfg.reasoningEffort) body.reasoning_effort = presetCfg.reasoningEffort;
         res = await fetchAIWithRetry(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-          body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify(body)
         }, status);
         rawData = await res.json();
         rawText = rawData.choices?.[0]?.message?.content || '';
