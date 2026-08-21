@@ -199,6 +199,13 @@ body { background: #f5f4f0; font-size: 14px; padding-top: 56px; }
 </head>
 <body>
 
+<!-- Build tag del dashboard (no confundir con navbar-app-version, que es la versión de
+     eGestion en revisión) — bump manual en cada push para confirmar en el navegador que
+     ya está sirviendo el HTML nuevo y no uno cacheado. -->
+<div style="position:fixed; bottom:4px; right:8px; font-size:10px; color:#adb5bd; z-index:2000; font-family:monospace; pointer-events:none;">
+  dashboard build 2026-08-21.1
+</div>
+
 <!-- ══════════════════════════════════════════════════════
      LOGIN WALL
 ══════════════════════════════════════════════════════ -->
@@ -887,8 +894,12 @@ const AI_PRESETS = {
     model: 'openai/gpt-oss-20b',
     provider: 'openai',
     chunkSize: 4,
-    maxTokens: 1500,
-    reasoningEffort: 'low'
+    maxTokens: 800,
+    reasoningEffort: 'low',
+    // Free tier: 8000 tokens/min. max_tokens se reserva contra ese límite apenas se pide,
+    // no solo lo que termina generando — con ~300 de input + 800 de max_tokens por chunk,
+    // a este ritmo entran ~7 requests/min sin pisar el límite.
+    requestDelayMs: 8000
   },
   openrouter: {
     label: 'OpenRouter (Llama free)',
@@ -1713,6 +1724,10 @@ async function runAIClean() {
       }
     }
     status.textContent = `⏳ ${Math.min(i + CHUNK, targets.length)}/${targets.length}`;
+    if (presetCfg.requestDelayMs && i + CHUNK < targets.length) {
+      status.textContent += ` — esperando ${presetCfg.requestDelayMs / 1000}s (límite de tasa)...`;
+      await new Promise(r => setTimeout(r, presetCfg.requestDelayMs));
+    }
   }
   if (aiFailed || saveFailed) {
     status.textContent = `⚠ Terminado con errores (IA: ${aiFailed}, guardado: ${saveFailed}) — ${lastError}`;
